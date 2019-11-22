@@ -2111,6 +2111,9 @@ vte_terminal_paste_primary(VteTerminal *terminal)
  * user moves the mouse cursor over a section of displayed text which matches
  * this expression, the text will be highlighted.
  *
+ * When vte_terminal_match_check_event() returns a match for this regex, the
+ * returned tag will be the return value of this function.
+ *
  * Returns: an integer associated with this expression, or -1 if @gregex could not be
  *   transformed into a #VteRegex or @gflags were incompatible
  *
@@ -2137,13 +2140,20 @@ vte_terminal_match_add_gregex(VteTerminal *terminal,
  * vte_terminal_match_add_regex:
  * @terminal: a #VteTerminal
  * @regex: (transfer none): a #VteRegex
- * @flags: PCRE2 match flags, or 0
+ * @flags: PCRE2 match flags, or 0 to use the default flags
  *
  * Adds the regular expression @regex to the list of matching expressions.  When the
  * user moves the mouse cursor over a section of displayed text which matches
  * this expression, the text will be highlighted.
  *
- * Returns: an integer associated with this expression
+ * When vte_terminal_match_check_event() returns a match for this regex, the
+ * returned tag will be the return value of this function.
+ *
+ * Note that the default flags only contain PCRE2_UTF (and some flags for internal use);
+ * if you want to match unicode properties, you need to pass PCRE2_UCP in @flags.
+ * See man:pcre2_compile(3) for more information on available flags.
+ *
+ * Returns: a nonnegative integer associated with this expression
  *
  * Since: 0.46
  */
@@ -2162,6 +2172,30 @@ vte_terminal_match_add_regex(VteTerminal *terminal,
                                      flags,
                                      VTE_DEFAULT_CURSOR,
                                      impl->regex_match_next_tag()).tag();
+}
+
+/**
+ * vte_terminal_match_add_builtins:
+ * @terminal: a #VteTerminal
+ *
+ * Adds regular expressions to recognise URIs to the list of matching expressions.
+ * When the user moves the mouse cursor over a section of displayed text which matches
+ * this expression, the text will be highlighted.
+ *
+ * When vte_terminal_match_check_event() returns a match for this regex, the
+ * returned tag will a value from #VteBuiltinMatchTag.
+ *
+ * Use vte_terminal_match_remove_builtins() or vte_terminal_match_remove_all() to remove
+ * the matching expressions added by this function.
+ *
+ * Since: 0.60
+ */
+void
+vte_terminal_match_add_builtins(VteTerminal *terminal)
+{
+	g_return_if_fail(VTE_IS_TERMINAL(terminal));
+
+        IMPL(terminal)->regex_match_add_builtins();
 }
 
 /**
@@ -2204,20 +2238,24 @@ vte_terminal_match_check(VteTerminal *terminal,
  *
  * Checks if the text in and around the position of the event matches any of the
  * regular expressions previously set using vte_terminal_match_add().  If a
- * match exists, the text string is returned and if @tag is not %NULL, the number
- * associated with the matched regular expression will be stored in @tag.
+ * match exists, the text string is returned.
  *
- * If more than one regular expression has been set with
- * vte_terminal_match_add(), then expressions are checked in the order in
- * which they were added.
+ * If @tag is not %NULL, it will store the nonnegative integer associated with the
+ * matched regular expression, if it was added with vte_terminal_match_add_regex(),
+ * or a negative number from #VteBuiltinMatchTag if the matching regular expression
+ * is one added with vte_terminal_match_add_builtins() matched, or -1 if there is
+ * no match.
+ *
+ * Expressions are checked in the order in which they were added, returning the
+ * first match.
  *
  * Returns: (transfer full) (nullable): a newly allocated string which matches one of the previously
  *   set regular expressions, or %NULL if there is no match
  */
 char *
-vte_terminal_match_check_event(VteTerminal *terminal,
-                               GdkEvent *event,
-                               int *tag)
+vte_terminal_match_check_event(VteTerminal* terminal,
+                               GdkEvent* event,
+                               int* tag)
 {
         g_return_val_if_fail(VTE_IS_TERMINAL(terminal), FALSE);
         return IMPL(terminal)->regex_match_check(event, tag);
@@ -2390,17 +2428,33 @@ vte_terminal_match_set_cursor_name(VteTerminal *terminal,
 /**
  * vte_terminal_match_remove:
  * @terminal: a #VteTerminal
- * @tag: the tag of the regex to remove
+ * @tag: the nonnegative tag of the regex to remove
  *
  * Removes the regular expression which is associated with the given @tag from
  * the list of expressions which the terminal will highlight when the user
  * moves the mouse cursor over matching text.
  */
 void
-vte_terminal_match_remove(VteTerminal *terminal, int tag)
+vte_terminal_match_remove(VteTerminal *terminal,
+                          int tag)
 {
 	g_return_if_fail(VTE_IS_TERMINAL(terminal));
         IMPL(terminal)->regex_match_remove(tag);
+}
+
+/**
+ * vte_terminal_match_remove_builtins:
+ * @terminal: a #VteTerminal
+ *
+ * Removes the regular expression added with vte_terminal_match_add_builtins().
+ *
+ * Since: 0.60
+ */
+void
+vte_terminal_match_remove_builtins(VteTerminal *terminal)
+{
+	g_return_if_fail(VTE_IS_TERMINAL(terminal));
+        IMPL(terminal)->regex_match_remove_builtins();
 }
 
 /**

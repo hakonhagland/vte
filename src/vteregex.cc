@@ -24,9 +24,9 @@
 
 #include "config.h"
 
-#include "vtemacros.h"
-#include "vteenums.h"
-#include "vteregex.h"
+#include "vte/vtemacros.h"
+#include "vte/vteenums.h"
+#include "vte/vteregex.h"
 #include "vtepcre2.h"
 
 #include "regex.hh"

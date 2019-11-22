@@ -72,7 +72,12 @@ pty_sources = files(
 
 regex_sources = files(
   'regex.cc',
-  'regex.hh'
+  'regex.hh',
+  'regex-builtins.cc',
+  'regex-builtins.hh',
+  'regex-builtins-patterns.hh',
+  'vteregex.cc',
+  'vteregexinternal.hh',
 )
 
 utf8_sources = files(
@@ -90,6 +95,7 @@ libvte_common_sources = debug_sources + modes_sources + parser_sources + pty_sou
   'chunk.cc',
   'chunk.hh',
   'color-triple.hh',
+  'fwd.hh',
   'keymap.cc',
   'keymap.h',
   'reaper.cc',
@@ -109,8 +115,6 @@ libvte_common_sources = debug_sources + modes_sources + parser_sources + pty_sou
   'vtegtk.hh',
   'vteinternal.hh',
   'vtepcre2.h',
-  'vteregex.cc',
-  'vteregexinternal.hh',
   'vterowdata.cc',
   'vterowdata.hh',
   'vteseq.cc',
@@ -405,6 +409,19 @@ test_refptr = executable(
   install: false,
 )
 
+test_regex_sources = regex_sources + files(
+  'regex-test.cc',
+)
+
+test_regex = executable(
+  'test-regex',
+  sources: test_regex_sources,
+  dependencies: [glib_dep, gobject_dep, pcre2_dep,],
+  cpp_args: ['-DVTE_COMPILATION',],
+  include_directories: top_inc,
+  install: false,
+)
+
 test_tabstops_sources = files(
   'tabstops-test.cc',
   'tabstops.hh'
@@ -472,6 +489,7 @@ test_units = [
   ['parser', test_parser],
   ['reaper', test_reaper],
   ['refptr', test_refptr],
+  ['regex', test_regex],
   ['stream', test_stream],
   ['tabstops', test_tabstops],
   ['utf8', test_utf8],

@@ -177,6 +177,20 @@ typedef enum {
         VTE_FORMAT_HTML = 2
 } VteFormat;
 
+/**
+ * VteBuiltinMatchTag:
+ * @VTE_BUILTIN_MATCH_TAG_URI: the match is an URI as recognised by
+ *   the expressions added with vte_terminal_match_add_uris()
+ *
+ * An enumeration that will be returned from vte_terminal_match_check_event()
+ * if a builtin expression matched.
+ *
+ * Since: 0.60
+ */
+typedef enum {
+        VTE_BUILTIN_MATCH_TAG_URI = -2
+} VteBuiltinMatchTag;
+
 G_END_DECLS
 
 #endif /* __VTE_VTE_ENUMS_H__ */

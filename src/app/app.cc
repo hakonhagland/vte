@@ -995,8 +995,7 @@ struct _VteappWindowClass {
 static GType vteapp_window_get_type(void);
 
 static char const* const builtin_dingus[] = {
-        "(((gopher|news|telnet|nntp|file|http|ftp|https)://)|(www|ftp)[-A-Za-z0-9]*\\.)[-A-Za-z0-9\\.]+(:[0-9]*)?",
-        "(((gopher|news|telnet|nntp|file|http|ftp|https)://)|(www|ftp)[-A-Za-z0-9]*\\.)[-A-Za-z0-9\\.]+(:[0-9]*)?/[-A-Za-z0-9_\\$\\.\\+\\!\\*\\(\\),;:@&=\\?/~\\#\\%]*[^]'\\.}>\\) ,\\\"]",
+        "(foo|bar|baz)+",
         nullptr,
 };
 
@@ -1398,6 +1397,29 @@ window_action_copy_match_cb(GSimpleAction* action,
 }
 
 static void
+window_action_open_uri_cb(GSimpleAction* action,
+                          GVariant* parameter,
+                          void* data)
+{
+        VteappWindow* window = VTEAPP_WINDOW(data);
+        auto len = size_t{};
+        auto str = g_variant_get_string(parameter, &len);
+        GError* err{nullptr};
+
+#if GTK_CHECK_VERSION(3, 22, 0)
+        if (!gtk_show_uri_on_window(GTK_WINDOW(window),
+#else
+        if (!gtk_show_uri(gtk_widget_get_screen(GTK_WIDGET(window)),
+#endif
+                                    str,
+                                    gtk_get_current_event_time(),
+                                    &err)) {
+                verbose_printerr("Opening URI \"%s\" failed: %s\n", str, err->message);
+                g_error_free(err);
+        }
+}
+
+static void
 window_action_paste_cb(GSimpleAction* action,
                        GVariant* parameter,
                        void* data)
@@ -1477,12 +1499,20 @@ vteapp_window_show_context_menu(VteappWindow* window,
                         g_object_unref(item);
                 }
 
-                auto match = vte_terminal_match_check_event(window->terminal, event, nullptr);
+                auto tag = int{-1};
+                auto match = vte_terminal_match_check_event(window->terminal, event, &tag);
                 if (match != nullptr) {
                         verbose_print("Match: %s\n", match);
                         GVariant* target = g_variant_new_string(match);
                         auto item = g_menu_item_new("Copy _Match", nullptr);
                         g_menu_item_set_action_and_target_value(item, "win.copy-match", target);
+                        g_menu_append_item(menu, item);
+                        g_object_unref(item);
+                }
+                if (match != nullptr && tag == VTE_BUILTIN_MATCH_TAG_URI) {
+                        GVariant* target = g_variant_new_string(match);
+                        auto item = g_menu_item_new("_Open URI", nullptr);
+                        g_menu_item_set_action_and_target_value(item, "win.open-uri", target);
                         g_menu_append_item(menu, item);
                         g_object_unref(item);
                 }
@@ -1839,6 +1869,7 @@ vteapp_window_constructed(GObject *object)
         GActionEntry const entries[] = {
                 { "copy",        window_action_copy_cb,       "s", nullptr, nullptr },
                 { "copy-match",  window_action_copy_match_cb, "s", nullptr, nullptr },
+                { "open-uri",    window_action_open_uri_cb,   "s", nullptr, nullptr },
                 { "paste",       window_action_paste_cb,  nullptr, nullptr, nullptr },
                 { "reset",       window_action_reset_cb,      "b", nullptr, nullptr },
                 { "find",        window_action_find_cb,   nullptr, nullptr, nullptr },
@@ -1960,8 +1991,10 @@ vteapp_window_constructed(GObject *object)
                 gtk_widget_set_opacity (GTK_WIDGET (window), options.get_alpha());
 
         /* Dingus */
-        if (!options.no_builtin_dingus)
+        if (!options.no_builtin_dingus) {
                 vteapp_window_add_dingus(window, builtin_dingus);
+                vte_terminal_match_add_builtins(window->terminal);
+        }
         if (options.dingus != nullptr)
                 vteapp_window_add_dingus(window, options.dingus);
 
